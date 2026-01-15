@@ -1,6 +1,6 @@
 /* =========================
    KALEIDOSCOPE.JS
-   OUTLINE-ONLY, ANDROID-SAFE
+   HANG-SAFE, ANDROID-SAFE
    ========================= */
 
 var canvas = document.getElementById("kaleidoscope");
@@ -68,6 +68,7 @@ function initShapes() {
     if (ok) shapes.push(s);
   }
 
+  /* graceful fallback */
   if (shapes.length === 0) {
     shapes.push(randomShape());
   }
@@ -77,6 +78,7 @@ initShapes();
 /* ---------- DRAW HELPERS ---------- */
 function setColor(h) {
   var strokeHue = STROKE_PALETTE[Math.floor(h / 60) % STROKE_PALETTE.length];
+  ctx.fillStyle = "hsla(" + h + ",70%,55%,0.8)";
   ctx.strokeStyle = "hsla(" + strokeHue + ",45%,65%,1)";
   ctx.lineWidth = 2.0;
 }
@@ -87,6 +89,7 @@ function drawTriangle(size) {
   ctx.lineTo(size * 0.87, size * 0.5);
   ctx.lineTo(-size * 0.87, size * 0.5);
   ctx.closePath();
+  ctx.fill();
   ctx.stroke();
 }
 
@@ -97,6 +100,7 @@ function drawHex(size) {
     ctx.lineTo(Math.cos(a) * size, Math.sin(a) * size);
   }
   ctx.closePath();
+  ctx.fill();
   ctx.stroke();
 }
 
@@ -109,12 +113,8 @@ function drawShape(s) {
   if (s.type === "triangle") drawTriangle(s.size);
   else if (s.type === "hex") drawHex(s.size);
   else {
-    ctx.strokeRect(
-      -s.size,
-      -s.size * 0.6,
-      s.size * 2,
-      s.size * 1.2
-    );
+    ctx.fillRect(-s.size, -s.size * 0.6, s.size * 2, s.size * 1.2);
+    ctx.strokeRect(-s.size, -s.size * 0.6, s.size * 2, s.size * 1.2);
   }
 
   ctx.restore();
