@@ -180,26 +180,31 @@ update();
 const btn = document.getElementById("sensorBtn");
 
 btn.addEventListener("click", () => {
-  if (typeof DeviceOrientationEvent?.requestPermission === "function") {
-    DeviceOrientationEvent.requestPermission().then(p => {
-      if (p === "granted") {
-        window.addEventListener("deviceorientation", e => {
-          tiltX = e.gamma || 0;
-          tiltY = e.beta || 0;
-          rotation = tiltX * 0.01;
-        });
+  if (
+    typeof DeviceOrientationEvent !== "undefined" &&
+    typeof DeviceOrientationEvent.requestPermission === "function"
+  ) {
+    DeviceOrientationEvent.requestPermission()
+      .then(permission => {
+        if (permission === "granted") {
+          window.addEventListener("deviceorientation", handleOrientation);
+          btn.style.display = "none";
+        }
+      })
+      .catch(() => {
         btn.style.display = "none";
-      }
-    });
+      });
   } else {
-    window.addEventListener("deviceorientation", e => {
-      tiltX = e.gamma || 0;
-      tiltY = e.beta || 0;
-      rotation = tiltX * 0.01;
-    });
+    window.addEventListener("deviceorientation", handleOrientation);
     btn.style.display = "none";
   }
 });
+
+function handleOrientation(e) {
+  tiltX = e.gamma || 0;
+  tiltY = e.beta || 0;
+  rotation = tiltX * 0.01;
+}
 
 window.addEventListener("mousemove", e => {
   rotation = (e.clientX / w - 0.5) * Math.PI;
