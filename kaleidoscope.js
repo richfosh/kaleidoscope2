@@ -19,7 +19,7 @@ const STROKE_PALETTE = [
   245, // indigo
   275, // plum
   40,  // muted gold
-  0    // warm gray
+  0    // warm gray //**//**
 ];
 
 function resize() {
