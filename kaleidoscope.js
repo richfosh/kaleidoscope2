@@ -1,6 +1,6 @@
 /* =========================
    KALEIDOSCOPE.JS
-   Android-safe, ES5
+   HANG-SAFE, ANDROID-SAFE
    ========================= */
 
 var canvas = document.getElementById("kaleidoscope");
@@ -15,6 +15,7 @@ var SEGMENTS = 12;
 var SHAPE_COUNT = 9;
 var PADDING = 3;
 var COLLISION_PASSES = 6;
+var MAX_PLACEMENT_ATTEMPTS = 200;
 
 var shapes = [];
 
@@ -29,21 +30,14 @@ window.addEventListener("resize", resize);
 resize();
 
 /* ---------- STROKE PALETTE ---------- */
-var STROKE_PALETTE = [
-  200, // teal
-  220, // soft blue
-  245, // indigo
-  275, // plum
-  40,  // muted gold
-  0    // warm gray
-];
+var STROKE_PALETTE = [200, 220, 245, 275, 40, 0];
 
 /* ---------- SHAPE CREATION ---------- */
 function randomShape() {
   var size = 26 + Math.random() * 18;
   return {
-    x: cx + Math.random() * 140,
-    y: cy + Math.random() * 140,
+    x: cx + (Math.random() - 0.5) * 200,
+    y: cy + (Math.random() - 0.5) * 200,
     size: size,
     r: size * 0.9,
     angle: Math.random() * Math.PI * 2,
@@ -55,9 +49,13 @@ function randomShape() {
 
 function initShapes() {
   shapes.length = 0;
-  while (shapes.length < SHAPE_COUNT) {
+  var attempts = 0;
+
+  while (shapes.length < SHAPE_COUNT && attempts < MAX_PLACEMENT_ATTEMPTS) {
+    attempts++;
     var s = randomShape();
     var ok = true;
+
     for (var i = 0; i < shapes.length; i++) {
       var o = shapes[i];
       var dx = s.x - o.x;
@@ -68,6 +66,11 @@ function initShapes() {
       }
     }
     if (ok) shapes.push(s);
+  }
+
+  /* graceful fallback */
+  if (shapes.length === 0) {
+    shapes.push(randomShape());
   }
 }
 initShapes();
@@ -124,7 +127,6 @@ function solveCollisions() {
       for (var j = i + 1; j < shapes.length; j++) {
         var a = shapes[i];
         var b = shapes[j];
-
         var dx = b.x - a.x;
         var dy = b.y - a.y;
         var d = Math.sqrt(dx * dx + dy * dy);
@@ -134,7 +136,6 @@ function solveCollisions() {
           var nx = dx / d;
           var ny = dy / d;
           var push = (min - d) * 0.5;
-
           a.x -= nx * push;
           a.y -= ny * push;
           b.x += nx * push;
@@ -145,7 +146,7 @@ function solveCollisions() {
   }
 }
 
-/* ---------- SCREEN CONSTRAINT ---------- */
+/* ---------- CONSTRAINT ---------- */
 function constrain(s) {
   var m = s.r + 6;
   if (s.x < m) s.x = m;
