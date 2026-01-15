@@ -7,8 +7,20 @@ let tiltX = 0;
 let tiltY = 0;
 
 const SEGMENTS = 12;
-const SHAPE_COUNT = 40;
+const SHAPE_COUNT = 9;
+const PADDING = 3;
+const COLLISION_PASSES = 6;
+
 const shapes = [];
+
+const STROKE_PALETTE = [
+  200, // teal-blue
+  220, // soft blue
+  245, // indigo
+  275, // plum
+  40,  // muted gold
+  0    // warm gray
+];
 
 function resize() {
   w = canvas.width = window.innerWidth;
@@ -21,60 +33,133 @@ resize();
 
 /* ---------- SHAPES ---------- */
 function randomShape() {
+  const size = 26 + Math.random() * 18;
   return {
-    x: Math.random() * w,
-    y: Math.random() * h,
-    size: 10 + Math.random() * 20,
-    speedX: (Math.random() - 0.5) * 0.6,
-    speedY: (Math.random() - 0.5) * 0.6,
-    type: ["square", "triangle", "star"][Math.floor(Math.random() * 3)],
-    angle: Math.random() * Math.PI * 2
+    x: cx + Math.random() * 140,
+    y: cy + Math.random() * 140,
+    size,
+    r: size * 0.9,
+    angle: Math.random() * Math.PI * 2,
+    spin: (Math.random() - 0.5) * 0.01,
+    type: ["triangle", "rect", "hex"]
+      [Math.floor(Math.random() * 3)],
+    hue: Math.random() * 360
   };
 }
 
-for (let i = 0; i < SHAPE_COUNT; i++) {
-  shapes.push(randomShape());
+function init() {
+  shapes.length = 0;
+  while (shapes.length < SHAPE_COUNT) {
+    const s = randomShape();
+    if (!shapes.some(o =>
+      Math.hypot(s.x - o.x, s.y - o.y) < s.r + o.r + PADDING
+    )) {
+      shapes.push(s);
+    }
+  }
+}
+init();
+
+/* ---------- DRAW ---------- */
+function setColor(h) {
+  const strokeHue = STROKE_PALETTE[Math.floor(h / 60) % STROKE_PALETTE.length];
+
+  ctx.fillStyle = `hsla(${h},70%,55%,0.8)`;
+  ctx.strokeStyle = `hsla(${strokeHue},45%,65%,1)`;
+  ctx.lineWidth = 2.0; // +50% from 1.3
 }
 
-/* ---------- DRAWING ---------- */
+
+function drawTriangle(size) {
+  ctx.beginPath();
+  ctx.moveTo(0, -size);
+  ctx.lineTo(size * 0.87, size * 0.5);
+  ctx.lineTo(-size * 0.87, size * 0.5);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+}
+
+function drawHex(size) {
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const a = i * Math.PI / 3;
+    ctx.lineTo(Math.cos(a) * size, Math.sin(a) * size);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+}
+
 function drawShape(s) {
   ctx.save();
   ctx.translate(s.x, s.y);
   ctx.rotate(s.angle);
+  setColor(s.hue);
 
-  ctx.strokeStyle = "white";
-  ctx.lineWidth = 1;
-
-  if (s.type === "square") {
-    ctx.strokeRect(-s.size / 2, -s.size / 2, s.size, s.size);
-  }
-
-  if (s.type === "triangle") {
-    ctx.beginPath();
-    ctx.moveTo(0, -s.size);
-    ctx.lineTo(s.size, s.size);
-    ctx.lineTo(-s.size, s.size);
-    ctx.closePath();
-    ctx.stroke();
-  }
-
-  if (s.type === "star") {
-    ctx.beginPath();
-    for (let i = 0; i < 5; i++) {
-      let a = (i * 2 * Math.PI) / 5;
-      let r = i % 2 === 0 ? s.size : s.size / 2;
-      ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
-    }
-    ctx.closePath();
-    ctx.stroke();
+  if (s.type === "triangle") drawTriangle(s.size);
+  if (s.type === "hex") drawHex(s.size);
+  if (s.type === "rect") {
+    ctx.fillRect(-s.size, -s.size * 0.6, s.size * 2, s.size * 1.2);
+    ctx.strokeRect(-s.size, -s.size * 0.6, s.size * 2, s.size * 1.2);
   }
 
   ctx.restore();
 }
 
-/* ---------- ANIMATION ---------- */
+/* ---------- HARD COLLISION SOLVER ---------- */
+function solveCollisions() {
+  for (let k = 0; k < COLLISION_PASSES; k++) {
+    for (let i = 0; i < shapes.length; i++) {
+      for (let j = i + 1; j < shapes.length; j++) {
+        const a = shapes[i];
+        const b = shapes[j];
+
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const d = Math.hypot(dx, dy);
+        const min = a.r + b.r + PADDING;
+
+        if (d < min && d > 0.0001) {
+          const nx = dx / d;
+          const ny = dy / d;
+          const push = (min - d) * 0.5;
+
+          a.x -= nx * push;
+          a.y -= ny * push;
+          b.x += nx * push;
+          b.y += ny * push;
+        }
+      }
+    }
+  }
+}
+
+function constrainToScreen(s) {
+  const margin = s.r + 6;
+
+  if (s.x < margin) s.x = margin;
+  if (s.x > w - margin) s.x = w - margin;
+  if (s.y < margin) s.y = margin;
+  if (s.y > h - margin) s.y = h - margin;
+}
+
+
+/* ---------- UPDATE ---------- */
 function update() {
   ctx.clearRect(0, 0, w, h);
+
+shapes.forEach(s => {
+  s.x += tiltX * 0.06;
+  s.y += tiltY * 0.06;
+  s.angle += s.spin;
+  s.hue = (s.hue + 0.08) % 360;
+
+  constrainToScreen(s);
+});
+
+
+  solveCollisions();
 
   for (let i = 0; i < SEGMENTS; i++) {
     ctx.save();
@@ -83,49 +168,39 @@ function update() {
     if (i % 2 === 0) ctx.scale(-1, 1);
     ctx.translate(-cx, -cy);
 
-    shapes.forEach(s => drawShape(s));
+    shapes.forEach(drawShape);
     ctx.restore();
   }
-
-  shapes.forEach(s => {
-    s.x += s.speedX + tiltX * 0.05;
-    s.y += s.speedY + tiltY * 0.05;
-    s.angle += 0.01;
-
-    if (s.x < 0 || s.x > w) s.speedX *= -1;
-    if (s.y < 0 || s.y > h) s.speedY *= -1;
-  });
 
   requestAnimationFrame(update);
 }
 update();
 
-/* ---------- DEVICE SENSORS ---------- */
+/* ---------- INPUT ---------- */
 const btn = document.getElementById("sensorBtn");
 
 btn.addEventListener("click", () => {
-  if (typeof DeviceOrientationEvent !== "undefined" &&
-      typeof DeviceOrientationEvent.requestPermission === "function") {
-    DeviceOrientationEvent.requestPermission().then(permission => {
-      if (permission === "granted") {
-        window.addEventListener("deviceorientation", handleOrientation);
+  if (typeof DeviceOrientationEvent?.requestPermission === "function") {
+    DeviceOrientationEvent.requestPermission().then(p => {
+      if (p === "granted") {
+        window.addEventListener("deviceorientation", e => {
+          tiltX = e.gamma || 0;
+          tiltY = e.beta || 0;
+          rotation = tiltX * 0.01;
+        });
         btn.style.display = "none";
       }
     });
   } else {
-    window.addEventListener("deviceorientation", handleOrientation);
+    window.addEventListener("deviceorientation", e => {
+      tiltX = e.gamma || 0;
+      tiltY = e.beta || 0;
+      rotation = tiltX * 0.01;
+    });
     btn.style.display = "none";
   }
 });
 
-function handleOrientation(e) {
-  tiltX = e.gamma || 0;
-  tiltY = e.beta || 0;
-  rotation = tiltX * 0.01;
-}
-
-/* ---------- MOUSE (DESKTOP FALLBACK) ---------- */
 window.addEventListener("mousemove", e => {
-  const dx = e.clientX / w - 0.5;
-  rotation = dx * Math.PI;
+  rotation = (e.clientX / w - 0.5) * Math.PI;
 });
